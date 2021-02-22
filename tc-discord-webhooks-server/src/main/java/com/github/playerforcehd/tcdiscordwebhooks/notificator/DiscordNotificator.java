@@ -34,17 +34,14 @@ import jetbrains.buildServer.tests.TestName;
 import jetbrains.buildServer.users.NotificatorPropertyKey;
 import jetbrains.buildServer.users.PropertyKey;
 import jetbrains.buildServer.users.SUser;
-import jetbrains.buildServer.vcs.VcsRoot;
+import jetbrains.buildServer.vcs.*;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * The {@link Notificator} service that handles triggered notifications
@@ -167,15 +164,18 @@ public class DiscordNotificator implements Notificator {
     private DiscordEmbedField[] buildFieldsForRunningBuild(SRunningBuild sRunningBuild) {
         List<DiscordEmbedField> discordEmbedFields = new ArrayList<>();
         // Grab data
+
         // Project
         SProject project = getProjectFromRunningBuild(sRunningBuild);
         String projectName = NO_DATA;
         if (project != null) {
             projectName = project.getName();
         }
-        discordEmbedFields.add(new DiscordEmbedField("Project: ", projectName, true));
+        discordEmbedFields.add(new DiscordEmbedField("Project", projectName, true));
+
         // Build name
-        discordEmbedFields.add(new DiscordEmbedField("Build:", sRunningBuild.getBuildTypeName(), true));
+        discordEmbedFields.add(new DiscordEmbedField("Build", sRunningBuild.getBuildTypeName(), true));
+
         // Branch
         Branch branch = sRunningBuild.getBranch();
         String branchName = "Default";
@@ -183,10 +183,23 @@ public class DiscordNotificator implements Notificator {
             branchName = branch.getDisplayName();
         }
         discordEmbedFields.add(new DiscordEmbedField("Branch", branchName, true));
+
+        // Comments
         Comment comment = sRunningBuild.getBuildComment();
         if(comment != null) {
             discordEmbedFields.add(new DiscordEmbedField("Comment", comment.getComment(), false));
         }
+
+        // VCS Comments
+        List<SVcsModification> vcsComments = sRunningBuild.getContainingChanges();
+        if (vcsComments.size() > 0) {
+            StringBuilder changes = new StringBuilder();
+            for (SVcsModification modification : vcsComments) {
+                changes.append(String.format("- ``%s`` *%s - %s*\n", modification.getChanges().iterator().next().getAfterChangeRevisionNumber(), modification.getDescription(), modification.getUserName()));
+            }
+            discordEmbedFields.add(new DiscordEmbedField("Changes:", changes.toString(), false));
+        }
+
         return discordEmbedFields.toArray(new DiscordEmbedField[0]);
     }
 
